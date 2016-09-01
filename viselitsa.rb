@@ -1,7 +1,7 @@
 
-require_relative "./game.rb"
-require_relative "./result_printer.rb"
-require_relative "./word_reader.rb"
+require_relative "./lib/game.rb"
+require_relative "./lib/result_printer.rb"
+require_relative "./lib/word_reader.rb"
 
 printer = ResultPrinter.new
 
