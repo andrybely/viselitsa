@@ -1,10 +1,18 @@
+require 'unicode'
 
-require "unicode_utils/upcase"
-
+# Основной класс игры. Хранит состояние игры и предоставляет функции
+# для развития игры (ввод новых букв, подсчет кол-ва ошибок и т. п.)
 class Game
+  # Сокращенный способ записать сеттеры для получения информации об игре
+  attr_reader :errors, :letters, :good_letters, :bad_letters, :status
+
+  # Сокращенный способ записать и сеттер и геттер для поля version
+  attr_accessor :version
+
+  # Константа с максимальным количеством ошибок
+  MAX_ERRORS = 7
 
   def initialize(slovo)
-
     @letters = get_letters(slovo)
 
     @errors = 0
@@ -12,76 +20,118 @@ class Game
     @good_letters = []
     @bad_letters = []
 
-    @status = 0
+    # В поле @status теперь будет лежать не бездушная цифра
+    # А символ, который наглядно показывает статус
+    @status = :in_progress # :won, :lost
   end
 
   def get_letters(slovo)
     if (slovo == nil || slovo == "")
-      abort "Слово не задано"
+      abort "Задано пустое слово, не о чем играть. Закрываемся."
     else
       slovo = slovo.encode("UTF-8")
-      slovo = UnicodeUtils.upcase("#{slovo}")
     end
 
-    return slovo.split("")
+    Unicode.upcase(slovo).split('')
   end
 
-  def status
-    return @status
+  # Метод, который просто возвращает константу MAX_ERRORS
+  def max_errors
+    MAX_ERRORS
   end
 
-  def next_step(bukva)
+  # Метод, который возвращает количество оставшихся ошибок
+  def errors_left
+    MAX_ERRORS - @errors
+  end
 
-    if @status == -1 || @status == 1
-      return
+  # Метод, который отвечает на вопрос, является ли буква подходящей
+  def is_good?(letter)
+    @letters.include?(letter) ||
+      (letter == "Е" && @letters.include?("Ё")) ||
+      (letter == "Ё" && @letters.include?("Е")) ||
+      (letter == "И" && @letters.include?("Й")) ||
+      (letter == "Й" && @letters.include?("И"))
+  end
+
+  # Метод добавляет букву к массиву (хороших или плохих букв)
+  def add_letter_to(letters, letter)
+    # Обратите внимание, что переменная - это только ярлык,
+    # не смотря на то, что letters после работы метода исчезнет,
+    # объект, который мы поменяли, останется
+    letters << letter
+
+    case letter
+      when 'И' then letters << 'Й'
+      when 'Й' then letters << 'И'
+      when 'Е' then letters << 'Ё'
+      when 'Ё' then letters << 'Е'
     end
+  end
 
-    if @good_letters.include?(bukva) || @bad_letters.include?(bukva)
-      return
-    end
+  # Метод, который отвечает на вопрос, отгадано ли все слово
+  def solved?
+    (@letters - @good_letters).empty?
+  end
 
-    if @letters.include? bukva
-      @good_letters << bukva
+  # Метод, который отвечает на вопрос, была ли уже эта буква
+  def repeated?(letter)
+    @good_letters.include?(letter) || @bad_letters.include?(letter)
+  end
 
-      if @good_letters.uniq.sort == @letters.uniq.sort
-        @status = 1
-      end
+  # Метод, который отвечает на вопрос, проиграна ли игра
+  def lost?
+    @status == :lost || @errors >= MAX_ERRORS
+  end
 
+  # Метод, который отвечает на вопрос, продолжается ли игра
+  def in_progress?
+    @status == :in_progress
+  end
+
+  # Метод, который отвечает на вопрос, выиграл ли игрок
+  def won?
+    @status == :won
+  end
+
+  # Старый метод, который продвигает состояние игры на следующий ход
+  def next_step(letter)
+    # Поднимаем букву в верхний регистр
+    letter = Unicode.upcase(letter)
+
+    # Вываливаемся, если игра уже закончена
+    return if @status == :lost || @status == :won
+
+    # Вываливаемся, если буква уже была
+    return if repeated?(letter)
+
+    if is_good?(letter)
+      # Если буква подошла, добавляем её к хорошим
+      add_letter_to(@good_letters, letter)
+
+      # Если слово отгадано, меняем статус
+      @status = :won if solved?
     else
+      # Если буква не подошла, добавляем к плохим
+      add_letter_to(@bad_letters, letter)
 
-      @bad_letters << bukva
-
+      # Увеличиваем количество ошибок
       @errors += 1
 
-      if @errors >= 7
-        @status = -1
-      end
+      # Меняем статус на проигрыш, еслиигра проиграна
+      @status = :lost if lost?
     end
   end
 
+  # Метод, который спрашивает у пользователя следующую букву
   def ask_next_letter
-    puts "\nВведите букву"
+    puts "\nВведите следующую букву"
     letter = ""
+
     while letter == "" do
       letter = STDIN.gets.encode("UTF-8").chomp
-      letter = UnicodeUtils.upcase("#{letter}")
     end
+
     next_step(letter)
-  end
-
-  def errors
-    @errors
-  end
-
-  def letters
-    @letters
-  end
-
-  def good_letters
-    @good_letters
-  end
-
-  def bad_letters
-    @bad_letters
   end
 end
