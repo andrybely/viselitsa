@@ -16,3 +16,4 @@ class WordReader
       nil
     end
   end
+end
